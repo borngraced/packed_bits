@@ -46,7 +46,7 @@ println!("Year: {}", birthday.year());   // 99
 use core::mem::size_of;
 assert_eq!(2, size_of::<Date>()); // Only 2 bytes!
 
-### RGB Color (16-bit)
+// RGB Color (16-bit)
 packed_bits! {
     struct Rgb565(u16) {
         blue: 5,   // 0-31
@@ -56,7 +56,7 @@ packed_bits! {
 }
 let white = Rgb565::new(31, 63, 31);
 
-### TCP Flags(8-bit)
+// TCP Flags(8-bit)
 packed_bits! {
     struct TcpFlags(u8) {
         fin: 1,
@@ -69,7 +69,6 @@ packed_bits! {
         cwr: 1,
     }
 }
-
 let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 ```
 
