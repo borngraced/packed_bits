@@ -81,13 +81,6 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Type safe - Each field gets its own accessor method
 - Memory efficient - Pack multiple values into single integers
 
-## Todo
-
-[ ] impl setter methods to update individual fields
-[ ] impl compile-time validation for bit overflow 
-[ ] impl const fn support for compile-time creation
-[ ] impl bit manipulation methods (set_bit, clear_bit, etc.)
-
 ## Important Notes
 
 - Make sure your bit counts add up to fit in your storage type
@@ -95,3 +88,10 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Each field gets a method with the same name to read its value
 - Values are stored from lowest bits to highest bits in declaration order
 - Maximum value for each field is (2^bits) - 1
+
+## TODO
+
+- [ ] Implement setter methods to update individual fields
+- [ ] Implement compile-time validation for bit overflow 
+- [ ] Implement const fn support for compile-time creation
+- [ ] Implement bit manipulation methods (set_bit, clear_bit, etc.)
