@@ -1,0 +1,17 @@
+[package]
+name = "packed_bits"
+authors = ["Samuel Onoja <0@sami.cx>"]
+version = "0.1.0"
+edition = "2024"
+description = "Memory-efficient bit packing library"
+keywords = ["bit-packing", "embedded", "no-std", "memory-efficient", "macro"]
+categories = ["embedded", "no-std", "data-structures"]
+
+[features]
+default = []
+std = []
+
+[dependencies]
+
+[dev-dependencies]
+static_assertions = "1.0"
