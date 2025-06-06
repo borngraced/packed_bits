@@ -35,16 +35,13 @@ packed_bits! {
         year: 7,   // Can store 0-99 (needs 7 bits since 2^7 = 128)
     }
 }
-
 let birthday = Date::new(25, 12, 99);
 // read values
 println!("Day: {}", birthday.day());     // 25
 println!("Month: {}", birthday.month()); // 12
 println!("Year: {}", birthday.year());   // 99
-
 // Memory usage
-use core::mem::size_of;
-assert_eq!(2, size_of::<Date>()); // Only 2 bytes!
+assert_eq!(2, core::mem::size_of::<Date>()); // 2 bytes!
 
 // RGB Color (16-bit)
 packed_bits! {
