@@ -11,11 +11,11 @@ Update your Cargo.toml:
 ```toml
 # std
 [dependencies]
-packed_bits = { git = "https://github.com/borngraced/packed_bits", features = ["std"] }
+packed_bits = { git = "https://github.com/borngraced/packed_bits.git", features = ["std"] }
 
 # no_std 
 [dependencies]
-packed_bits = { git = "https://github.com/borngraced/packed_bits", default-features = false }
+packed_bits = { git = "https://github.com/borngraced/packed_bits.git", default-features = false }
 ```
 
 ## Memory Savings
