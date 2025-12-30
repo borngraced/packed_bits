@@ -71,7 +71,7 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 
 ## Features
 
-- No dependencies - Pure Rust implementation
+- Minimal dependencies - Pure Rust implementation
 - no_std compatible - Works in embedded environments
 - Zero-cost abstractions - Compiles to raw bit operations
 - Type safe - Each field gets its own accessor method
