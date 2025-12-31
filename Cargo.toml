@@ -13,6 +13,7 @@ std = []
 
 [dependencies]
 paste = "1.0"
+static_assertions = "1.0"
 
 [dev-dependencies]
-static_assertions = "1.0"
+trybuild = "1.0"

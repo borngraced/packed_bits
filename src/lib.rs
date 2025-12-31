@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use paste::paste;
+pub use static_assertions;
 
 /// Memory-efficient bit packing library.
 /// Define a packed_bits struct that stores multiple fields in a single integer.
@@ -17,7 +18,7 @@ pub use paste::paste;
 ///
 /// # Example
 /// ```rust
-/// use packed_bits::{packed_bits, paste};
+/// use packed_bits::packed_bits;
 /// packed_bits! {
 ///     struct Date(u16) {
 ///         day: 5,    // Can store 1-31 (needs 5 bits since 2^5 = 32)
@@ -65,10 +66,7 @@ macro_rules! packed_bits {
                 let fields = [$($field),*];
                 let bit_sizes = [$($bits),*];
 
-                assert!(
-                    bit_sizes.iter().sum::<usize>() <= core::mem::size_of::<$storage>() * 8,
-                    "Total bits size exceed storage size"
-                );
+                $crate::static_assertions::const_assert!(($($bits +)* 0) <= core::mem::size_of::<$storage>() * 8);
 
                 let mut packed = 0;
                 let mut offset = 0;
@@ -108,7 +106,7 @@ macro_rules! packed_bits {
 
     // setters internal macro rules
     (@impl_setters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*]) => {
-        paste! {
+        $crate::paste! {
             fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
                 let mask = ((1 << $first_bits) - 1);
                 self.0 = (self.0 & !mask) | (value & mask);
@@ -121,7 +119,7 @@ macro_rules! packed_bits {
     };
 
     (@impl_setters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*], $offset:expr) => {
-        paste! {
+        $crate::paste! {
             fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
                 let mask = ((1 << $first_bits) - 1) << $offset;
                 self.0 = (self.0 & !mask) | ((value & ((1 << $first_bits) - 1)) << $offset);
@@ -179,13 +177,6 @@ mod tests {
             _urg: 1,
             _ece: 1,
             _cwr: 1,
-        }
-    }
-
-    packed_bits! {
-        struct OversizedFields(u8) {
-            _a: 5,
-            _b: 4,
         }
     }
 
@@ -306,11 +297,5 @@ mod tests {
         let mut time = Time::new(0, 0, 0);
         time.set_hour(23).set_minute(59).set_second(59);
         assert_eq!((59, 59, 23), (time.second(), time.minute(), time.hour()));
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_oversized_fields() {
-        let _ = OversizedFields::new(31, 15);
     }
 }
