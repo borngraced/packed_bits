@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub use paste::paste;
+pub use static_assertions;
+
 /// Memory-efficient bit packing library.
 /// Define a packed_bits struct that stores multiple fields in a single integer.
 ///
@@ -63,6 +66,8 @@ macro_rules! packed_bits {
                 let fields = [$($field),*];
                 let bit_sizes = [$($bits),*];
 
+                $crate::static_assertions::const_assert!(($($bits +)* 0) <= core::mem::size_of::<$storage>() * 8);
+
                 let mut packed = 0;
                 let mut offset = 0;
 
@@ -75,6 +80,7 @@ macro_rules! packed_bits {
             }
 
             packed_bits!(@impl_getters $storage, [$($field: $bits),*]);
+            packed_bits!(@impl_setters $storage, [$($field: $bits),*]);
         }
 
     };
@@ -97,6 +103,35 @@ macro_rules! packed_bits {
 
     (@impl_getters $storage:ty, [], $offset:expr) => {};
     (@impl_getters $storage:ty, []) => {};
+
+    // setters internal macro rules
+    (@impl_setters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*]) => {
+        $crate::paste! {
+            fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
+                let mask = ((1 << $first_bits) - 1);
+                self.0 = (self.0 & !mask) | (value & mask);
+                self
+            }
+
+        }
+
+        packed_bits!(@impl_setters $storage, [$($field: $bits),*], $first_bits);
+    };
+
+    (@impl_setters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*], $offset:expr) => {
+        $crate::paste! {
+            fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
+                let mask = ((1 << $first_bits) - 1) << $offset;
+                self.0 = (self.0 & !mask) | ((value & ((1 << $first_bits) - 1)) << $offset);
+                self
+            }
+        }
+
+        packed_bits!(@impl_setters $storage, [$($field: $bits),*], $offset + $first_bits);
+    };
+
+    (@impl_setters $storage:ty, [], $offset:expr) => {};
+    (@impl_setters $storage:ty, []) => {};
 }
 
 #[cfg(test)]
@@ -247,5 +282,20 @@ mod tests {
         assert_eq!(200, size_of::<[Rgb565; 100]>());
         // 100 * 1 byte
         assert_eq!(100, size_of::<[TcpFlags; 100]>());
+    }
+
+    #[test]
+    fn set_functionality() {
+        let mut date = Date::new(1, 1, 0);
+        date.set_day(31).set_month(12).set_year(99);
+        assert_eq!((31, 12, 99), (date.day(), date.month(), date.year()));
+
+        let mut color = Rgb565::new(0, 0, 0);
+        color.set_red(31).set_green(63).set_blue(31);
+        assert_eq!((31, 63, 31), (color.blue(), color.green(), color.red()));
+
+        let mut time = Time::new(0, 0, 0);
+        time.set_hour(23).set_minute(59).set_second(59);
+        assert_eq!((59, 59, 23), (time.second(), time.minute(), time.hour()));
     }
 }
