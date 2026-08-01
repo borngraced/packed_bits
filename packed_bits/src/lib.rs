@@ -665,6 +665,7 @@ macro_rules! packed_bits {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code, private_interfaces, clippy::too_many_arguments)]
     use super::*;
     use core::mem::size_of;
 
@@ -707,12 +708,12 @@ mod tests {
         struct TcpFlags(u8) {
             fin: 1,
             syn: 1,
-            _rst: 1,
-            _psh: 1,
+            rst: 1,
+            psh: 1,
             ack: 1,
-            _urg: 1,
-            _ece: 1,
-            _cwr: 1,
+            urg: 1,
+            ece: 1,
+            cwr: 1,
         }
     }
 
