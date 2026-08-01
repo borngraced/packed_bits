@@ -1,5 +1,3 @@
-
-
 # packed_bits
 
 Memory-efficient bit packing library
@@ -17,11 +15,6 @@ packed_bits = { git = "https://github.com/borngraced/packed_bits.git", features 
 [dependencies]
 packed_bits = { git = "https://github.com/borngraced/packed_bits.git", default-features = false }
 ```
-
-## Memory Savings
-
-Without packing: day(4 bytes) + month(4 bytes) + year(4 bytes) = 12 bytes total
-With packing: everything fits in just 2 bytes!
 
 ## Usage
 
@@ -85,31 +78,34 @@ assert_eq!(epoch, Date::from_raw(epoch.get_raw()));
 assert_eq!(16, epoch.bit_width());
 // Memory usage
 assert_eq!(2, core::mem::size_of::<Date>()); // 2 bytes!
+```
 
-// RGB Color (16-bit)
+### Typed fields with derive
+
+```rust
+use packed_bits::packed_bits;
+
+#[derive(packed_bits::PackedField, Debug, Clone, Copy, PartialEq, Eq)]
+enum Color {
+    Red = 0,
+    Green = 1,
+    Blue = 2,
+}
+
 packed_bits! {
-    struct Rgb565(u16) {
-        blue: 5,   // 0-31
-        green: 6,  // 0-63
-        red: 5,    // 0-31
+    struct Pixel(u16) {
+        color: Color = 2,
+        alpha: u8 = 8,
     }
 }
-let white = Rgb565::new(31, 63, 31);
 
-// TCP Flags(8-bit)
-packed_bits! {
-    struct TcpFlags(u8) {
-        fin: 1,
-        syn: 1,
-        rst: 1,
-        psh: 1,
-        ack: 1,
-        urg: 1,
-        ece: 1,
-        cwr: 1,
-    }
-}
-let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
+let pixel = Pixel::new(Color::Blue, 200);
+assert_eq!(Some(Color::Blue), pixel.color());
+assert_eq!(2, pixel.color_raw());
+assert_eq!(Some(200), pixel.alpha());
+
+// construction from raw bits fails if any field has no valid value
+assert!(Pixel::try_from(3).is_err());
 ```
 
 ## Features
