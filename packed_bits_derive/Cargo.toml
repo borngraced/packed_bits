@@ -1,0 +1,19 @@
+[package]
+name = "packed_bits_derive"
+description = "Derive macro for the packed_bits bit packing library"
+keywords = ["bit-packing", "embedded", "no-std", "memory-efficient", "macro"]
+categories = ["embedded", "no-std", "data-structures"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
