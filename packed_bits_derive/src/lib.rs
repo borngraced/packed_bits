@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Lit};
+use syn::{Data, DeriveInput, Fields, Lit, parse_macro_input};
 
 /// Derives the `PackedField` trait for a fieldless enum.
 ///
@@ -127,9 +127,9 @@ fn expand(input: &DeriveInput) -> syn::Result<TokenStream2> {
 fn parse_discriminant(expr: &syn::Expr) -> syn::Result<u64> {
     match expr {
         syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
-            Lit::Int(int) => int.base10_parse::<u64>().map_err(|_| {
-                syn::Error::new_spanned(int, "discriminant must fit in a u64")
-            }),
+            Lit::Int(int) => int
+                .base10_parse::<u64>()
+                .map_err(|_| syn::Error::new_spanned(int, "discriminant must fit in a u64")),
             _ => Err(syn::Error::new_spanned(
                 expr,
                 "discriminant must be an integer literal",
