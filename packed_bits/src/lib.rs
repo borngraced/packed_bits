@@ -1,3 +1,121 @@
+//! # packed_bits
+//!
+//! Memory-efficient bit packing library. Define a `packed_bits` struct that
+//! stores multiple fields in a single integer, using only as many bits as each
+//! field needs.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use packed_bits::packed_bits;
+//!
+//! // LC-3 ADD instruction (16-bit). Fields map directly to the ISA layout:
+//! //   ADD DR, SR1, SR2   -> 0001 DR SR1 0 000 SR2 00
+//! //   ADD DR, SR1, imm5  -> 0001 DR SR1 1 imm5
+//! packed_bits! {
+//!     struct Lc3Add(u16) {
+//!         value: 5,   // SR2 (register mode) or imm5 (immediate mode)
+//!         imm: 1,     // 0 = register mode, 1 = immediate mode
+//!         sr1: 3,
+//!         dr: 3,
+//!         opcode: 4,  // 0b0001 for ADD
+//!     }
+//! }
+//!
+//! // ADD R2, R1, R3 (register mode) -> 0x144C
+//! let add_reg = Lc3Add::from(0x144C);
+//! assert_eq!((0b01100, 0, 1, 2, 0b0001),
+//!     (add_reg.value(), add_reg.imm(), add_reg.sr1(), add_reg.dr(), add_reg.opcode()));
+//!
+//! // ADD R0, R1, #5 (immediate mode) -> 0x1065
+//! let add_imm = Lc3Add::new(0b00101, 1, 1, 0, 0b0001);
+//! assert_eq!(0x1065, add_imm.get_raw());
+//!
+//! // read a single field
+//! assert_eq!(0b00101, add_imm.value());
+//!
+//! // update a field (chainable, returns &mut Self)
+//! let mut add = add_imm;
+//! add.set_dr(1).set_sr1(2);
+//! assert_eq!(1, add.dr());
+//!
+//! // raw bit access
+//! let mut flags = add;
+//! flags.set_bit(5, true).toggle_bit(9);
+//! assert!(flags.get_bit(5));
+//! flags.clear_bit(5);
+//! assert!(!flags.get_bit(5));
+//!
+//! // const-compatible creation
+//! const ADD_R0_R1_5: Lc3Add = Lc3Add::new(0b00101, 1, 1, 0, 0b0001);
+//! assert_eq!(0x1065, ADD_R0_R1_5.get_raw());
+//! ```
+//!
+//! # Typed fields
+//!
+//! Fields can also have a type, backed by the [`PackedField`] trait. Fieldless
+//! enums get an implementation via the `derive` feature:
+//!
+//! ```rust
+//! # #[cfg(feature = "derive")]
+//! # mod example {
+//! use packed_bits::{packed_bits, PackedField};
+//!
+//! #[derive(PackedField, Debug, Clone, Copy, PartialEq, Eq)]
+//! enum Color {
+//!     Red = 0,
+//!     Green = 1,
+//!     Blue = 2,
+//! }
+//!
+//! packed_bits! {
+//!     struct Pixel(u16) {
+//!         color: Color = 2,
+//!         alpha: u8 = 8,
+//!     }
+//! }
+//!
+//! pub fn run() {
+//!     let pixel = Pixel::new(Color::Blue, 200);
+//!     assert_eq!(Some(Color::Blue), pixel.color());
+//!     assert_eq!(2, pixel.color_raw());
+//!     assert_eq!(Some(200), pixel.alpha());
+//!
+//!     // construction from raw bits fails if any field has no valid value
+//!     assert!(Pixel::try_from(3).is_err());
+//! }
+//! # }
+//! ```
+//!
+//! # no_std
+//!
+//! `packed_bits` is `no_std` compatible. Disable default features to build
+//! without `std`:
+//!
+//! ```toml
+//! packed_bits = { version = "0.1", default-features = false }
+//! ```
+//!
+//! # Example: memory savings
+//!
+//! Eight boolean flags fit in a single byte instead of eight:
+//!
+//! Without packing: `fin` + `syn` + `ack` + ... (1 byte each) = 8 bytes
+//! With packing: everything fits in just 1 byte!
+//!
+//! # Macro parameters
+//!
+//! - `name`: The name of the generated struct
+//! - `storage`: The underlying data type/size (`u8`, `u16`, `u32`, `u64`)
+//! - `field`: Field name (will also be used as a getter method)
+//! - `bits`: Number of bits allocated for this field
+//!
+//! # Important notes
+//! - Make sure your bit counts add up to fit in your storage type
+//! - u16 can hold 16 bits total, u32 can hold 32 bits, etc.
+//! - Each field gets a method with the same name to read its value, plus `set_<field>` to update it
+//! - Values are stored from lowest bits to highest bits in declaration order
+//! - Passing an out-of-range value to `new`/setters panics; use `set_bit`/`get_bit` for raw bit access
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate self as packed_bits;
@@ -88,48 +206,15 @@ impl core::fmt::Display for FieldError {
 #[cfg(feature = "std")]
 impl std::error::Error for FieldError {}
 
-/// Memory-efficient bit packing library.
-/// Define a packed_bits struct that stores multiple fields in a single integer.
+/// Defines a packed struct that stores multiple fields in a single integer.
+///
+/// See the [crate documentation](crate) for usage examples.
 ///
 /// # Parameters
 /// - `name`: The name of the generated struct
 /// - `storage`: The underlying data type/size (`u8`, `u16`, `u32`, `u64`)
 /// - `field`: Field name (will also be used as a getter method)
 /// - `bits`: Number of bits allocated for this field
-///
-/// # Memory savings example
-/// Without packing: day(4 bytes) + month(4 bytes) + year(4 bytes) = 12 bytes total
-/// With packing: everything fits in just 2 bytes!
-///
-/// # Example
-/// ```rust
-/// use packed_bits::packed_bits;
-/// packed_bits! {
-///     struct Date(u16) {
-///         day: 5,    // Can store 1-31 (needs 5 bits since 2^5 = 32)
-///         month: 4,  // Can store 1-12 (needs 4 bits since 2^4 = 16)
-///         year: 7,   // Can store 0-99 (needs 7 bits since 2^7 = 128)
-///     }
-/// }
-///
-/// // Create a new date
-/// let mut birthday = Date::new(25, 12, 99);
-///
-/// // Getting the values back out
-/// println!("Day: {}", birthday.day());     // Day: 25
-/// println!("Month: {}", birthday.month()); // Month: 12
-/// println!("Year: {}", birthday.year());   // Year: 99
-///
-/// // Update a single field (chainable)
-/// birthday.set_day(1).set_month(1);
-/// assert_eq!((1, 1, 99), (birthday.day(), birthday.month(), birthday.year()));
-///
-/// // const-compatible creation
-/// const EPOCH: Date = Date::new(1, 1, 0);
-///
-/// // Memory Usage
-/// assert_eq!(2, core::mem::size_of::<Date>()); // Only 2 bytes!
-/// ```
 ///
 /// # Important notes
 /// - Make sure your bit counts add up to fit in your storage type
@@ -154,6 +239,9 @@ macro_rules! packed_bits {
         pub struct $name($storage);
 
         impl $name {
+            /// Creates a new packed struct from its fields.
+            ///
+            /// Panics if any field value exceeds its allocated bit width.
             pub fn new($($field: $ty),*) -> Self {
                 $crate::static_assertions::const_assert!(($($bits +)* 0) <= core::mem::size_of::<$storage>() * 8);
 
@@ -208,6 +296,9 @@ macro_rules! packed_bits {
         pub struct $name($storage);
 
         impl $name {
+            /// Creates a new packed struct from its fields.
+            ///
+            /// Panics if any field value exceeds its allocated bit width.
             pub const fn new($($field: $storage),*) -> Self {
                 $crate::static_assertions::const_assert!(($($bits +)* 0) <= core::mem::size_of::<$storage>() * 8);
 
@@ -260,6 +351,7 @@ macro_rules! packed_bits {
     };
 
      (@impl_getters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*]) => {
+        #[doc = concat!("Returns the `", stringify!($first), "` field.")]
         pub fn $first(&self) -> $storage {
             self.0 & ((1 << $first_bits) - 1)
         }
@@ -268,6 +360,7 @@ macro_rules! packed_bits {
     };
 
     (@impl_getters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*], $offset:expr) => {
+        #[doc = concat!("Returns the `", stringify!($first), "` field.")]
         pub fn $first(&self) -> $storage {
             (self.0 >> $offset) & ((1 << $first_bits) - 1)
         }
@@ -277,10 +370,12 @@ macro_rules! packed_bits {
 
     (@impl_getters $storage:ty, [], $offset:expr) => {};
     (@impl_getters $storage:ty, []) => {};
-
     // setters internal macro rules
     (@impl_setters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*]) => {
         $crate::paste! {
+            #[doc = concat!("Sets the `", stringify!($first), "` field, returning `self` for chaining.")]
+            ///
+            /// Panics if `value` exceeds the field's bit width.
             pub fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
                 assert!(value <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
                 let mask = ((1 << $first_bits) - 1);
@@ -295,12 +390,16 @@ macro_rules! packed_bits {
 
     (@impl_setters $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*], $offset:expr) => {
         $crate::paste! {
+            #[doc = concat!("Sets the `", stringify!($first), "` field, returning `self` for chaining.")]
+            ///
+            /// Panics if `value` exceeds the field's bit width.
             pub fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
                 assert!(value <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
                 let mask = ((1 << $first_bits) - 1) << $offset;
                 self.0 = (self.0 & !mask) | ((value & ((1 << $first_bits) - 1)) << $offset);
                 self
             }
+
         }
 
         packed_bits!(@impl_setters $storage, [$($field: $bits),*], $offset + $first_bits);
@@ -319,15 +418,23 @@ macro_rules! packed_bits {
     (@impl_typed_new $storage:ty, [], $offset:expr, $packed:ident) => {};
 
     (@impl_typed_getters $storage:ty, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*]) => {
+        #[doc = concat!("Returns the `", stringify!($first), "` field, or `None` if its raw bits have no valid value.")]
         pub fn $first(&self) -> Option<$first_ty> {
             <$first_ty as $crate::PackedField>::unpack((self.0 & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw)
         }
 
         $crate::paste! {
+            #[doc = concat!("Returns the raw `", stringify!($first), "` field bits.")]
             pub fn [<$first _raw>](&self) -> <$first_ty as $crate::PackedField>::Raw {
                 (self.0 & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw
             }
 
+            #[doc = concat!("Returns the `", stringify!($first), "` field without validating its raw bits.")]
+            ///
+            /// # Safety
+            ///
+            /// The raw bits must have a valid value for `$first_ty`; otherwise
+            /// the behavior is undefined.
             pub unsafe fn [<$first _unchecked>](&self) -> $first_ty {
                 // SAFETY: the caller guarantees the raw value is a valid representation.
                 unsafe {
@@ -340,15 +447,23 @@ macro_rules! packed_bits {
     };
 
     (@impl_typed_getters $storage:ty, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*], $offset:expr) => {
+        #[doc = concat!("Returns the `", stringify!($first), "` field, or `None` if its raw bits have no valid value.")]
         pub fn $first(&self) -> Option<$first_ty> {
             <$first_ty as $crate::PackedField>::unpack(((self.0 >> $offset) & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw)
         }
 
         $crate::paste! {
+            #[doc = concat!("Returns the raw `", stringify!($first), "` field bits.")]
             pub fn [<$first _raw>](&self) -> <$first_ty as $crate::PackedField>::Raw {
                 ((self.0 >> $offset) & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw
             }
 
+            #[doc = concat!("Returns the `", stringify!($first), "` field without validating its raw bits.")]
+            ///
+            /// # Safety
+            ///
+            /// The raw bits must have a valid value for `$first_ty`; otherwise
+            /// the behavior is undefined.
             pub unsafe fn [<$first _unchecked>](&self) -> $first_ty {
                 // SAFETY: the caller guarantees the raw value is a valid representation.
                 unsafe {
@@ -365,6 +480,9 @@ macro_rules! packed_bits {
 
     (@impl_typed_setters $storage:ty, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*]) => {
         $crate::paste! {
+            #[doc = concat!("Sets the `", stringify!($first), "` field, returning `self` for chaining.")]
+            ///
+            /// Panics if the packed value exceeds the field's bit width.
             pub fn [<set_ $first>](&mut self, value: $first_ty) -> &mut Self {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
                 assert!(packed <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
@@ -373,6 +491,7 @@ macro_rules! packed_bits {
                 self
             }
 
+            #[doc = concat!("Sets the raw `", stringify!($first), "` field bits, returning an error if the value exceeds the field's bit width.")]
             pub fn [<set_ $first _raw>](&mut self, value: <$first_ty as $crate::PackedField>::Raw) -> Result<&mut Self, $crate::FieldError> {
                 let value = value as $storage;
                 let mask = ((1 << $first_bits) - 1);
@@ -383,6 +502,7 @@ macro_rules! packed_bits {
                 Ok(self)
             }
 
+            #[doc = concat!("Sets the `", stringify!($first), "` field, returning an error if the packed value exceeds the field's bit width.")]
             pub fn [<try_set_ $first>](&mut self, value: $first_ty) -> Result<&mut Self, $crate::FieldError> {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
                 let mask = ((1 << $first_bits) - 1);
@@ -399,6 +519,9 @@ macro_rules! packed_bits {
 
     (@impl_typed_setters $storage:ty, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*], $offset:expr) => {
         $crate::paste! {
+            #[doc = concat!("Sets the `", stringify!($first), "` field, returning `self` for chaining.")]
+            ///
+            /// Panics if the packed value exceeds the field's bit width.
             pub fn [<set_ $first>](&mut self, value: $first_ty) -> &mut Self {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
                 assert!(packed <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
@@ -407,6 +530,7 @@ macro_rules! packed_bits {
                 self
             }
 
+            #[doc = concat!("Sets the raw `", stringify!($first), "` field bits, returning an error if the value exceeds the field's bit width.")]
             pub fn [<set_ $first _raw>](&mut self, value: <$first_ty as $crate::PackedField>::Raw) -> Result<&mut Self, $crate::FieldError> {
                 let value = value as $storage;
                 let mask = ((1 << $first_bits) - 1) << $offset;
@@ -417,6 +541,7 @@ macro_rules! packed_bits {
                 Ok(self)
             }
 
+            #[doc = concat!("Sets the `", stringify!($first), "` field, returning an error if the packed value exceeds the field's bit width.")]
             pub fn [<try_set_ $first>](&mut self, value: $first_ty) -> Result<&mut Self, $crate::FieldError> {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
                 let mask = ((1 << $first_bits) - 1) << $offset;
@@ -468,15 +593,22 @@ macro_rules! packed_bits {
     (@impl_typed_try_from $storage:ty, $value:ident, []) => {};
 
     (@impl_bit_ops_methods $storage:ty) => {
+        /// Returns the storage width in bits.
         pub fn bit_width(&self) -> usize {
             core::mem::size_of::<$storage>() * 8
         }
 
+        /// Returns whether the bit at `index` is set.
+        ///
+        /// Panics if `index` is out of range.
         pub fn get_bit(&self, index: usize) -> bool {
             assert!(index < self.bit_width(), "bit index {} out of range", index);
             (self.0 >> index) & 1 == 1
         }
 
+        /// Sets or clears the bit at `index`, returning `self` for chaining.
+        ///
+        /// Panics if `index` is out of range.
         pub fn set_bit(&mut self, index: usize, value: bool) -> &mut Self {
             assert!(index < self.bit_width(), "bit index {} out of range", index);
             let mask = 1 << index;
@@ -488,10 +620,16 @@ macro_rules! packed_bits {
             self
         }
 
+        /// Clears the bit at `index`, returning `self` for chaining.
+        ///
+        /// Panics if `index` is out of range.
         pub fn clear_bit(&mut self, index: usize) -> &mut Self {
             self.set_bit(index, false)
         }
 
+        /// Toggles the bit at `index`, returning `self` for chaining.
+        ///
+        /// Panics if `index` is out of range.
         pub fn toggle_bit(&mut self, index: usize) -> &mut Self {
             assert!(index < self.bit_width(), "bit index {} out of range", index);
             self.0 ^= 1 << index;

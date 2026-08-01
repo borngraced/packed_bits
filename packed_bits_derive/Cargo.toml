@@ -6,6 +6,9 @@ categories = ["embedded", "no-std", "data-structures"]
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
 
 [lib]
 proc-macro = true
