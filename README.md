@@ -43,6 +43,19 @@ println!("Year: {}", birthday.year());   // 99
 // update values (chainable, returns &mut Self)
 birthday.set_day(1).set_month(1).set_year(1);
 assert_eq!((1, 1, 1), (birthday.day(), birthday.month(), birthday.year()));
+// const-compatible creation
+const EPOCH: Date = Date::new(1, 1, 0);
+// raw bit access
+let mut epoch = EPOCH;
+epoch.set_bit(5, true).toggle_bit(9);
+assert_eq!(true, epoch.get_bit(5));
+assert_eq!(true, epoch.get_bit(9));
+epoch.clear_bit(5);
+assert_eq!(false, epoch.get_bit(5));
+// raw storage access
+assert_eq!(epoch, Date::from_raw(epoch.get_raw()));
+// bit width
+assert_eq!(16, epoch.bit_width());
 // Memory usage
 assert_eq!(2, core::mem::size_of::<Date>()); // 2 bytes!
 
@@ -80,7 +93,11 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Type safe - Each field gets its own accessor and setter method
 - Memory efficient - Pack multiple values into single integers
 - Compile-time validation - Catches bit overflow at build time
+- const fn support - Create packed values at compile time via `Date::new()`
 - Chainable setters - Update fields fluently via `set_<field>()`
+- Runtime overflow detection - Panics when a value exceeds its field capacity
+- Raw bit manipulation - `get_bit`, `set_bit`, `clear_bit`, `toggle_bit`
+- Raw storage access - `get_raw`, `set_raw`, `from_raw`
 
 ## Important Notes
 
@@ -89,10 +106,12 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Each field gets a method with the same name to read its value, plus `set_<field>` to update it
 - Values are stored from lowest bits to highest bits in declaration order
 - Maximum value for each field is (2^bits) - 1
-- Values passed to `new`/setters are masked to the field width; the macro asserts the total bit count fits at compile time
+- Passing an out-of-range value to `new`/setters panics instead of silently truncating
+- Bit manipulation methods operate on the raw underlying storage, not logical fields
+- Bit indices are 0-based; out-of-range indices panic
 
 ## TODO
 
-- [ ] Implement const fn support for compile-time creation
-- [ ] Implement bit manipulation methods (set_bit, clear_bit, etc.)
-- [ ] Runtime overflow detection for values passed to `new`
+- [ ] Implement `Display`/`FromStr` conversions
+- [ ] Implement support for `bool` fields
+- [ ] Implement support for signed integer fields
