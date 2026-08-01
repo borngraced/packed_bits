@@ -3,7 +3,7 @@ resolver = "3"
 members = ["packed_bits", "packed_bits_derive"]
 
 [workspace.package]
-authors = ["Samuel Onoja <0@sami.cx>"]
+authors = ["Samuel Onoja <0@sot.dev>"]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
