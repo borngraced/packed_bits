@@ -185,6 +185,15 @@ macro_rules! packed_bits {
             packed_bits!(@impl_bit_ops_methods $storage);
         }
 
+        impl core::convert::TryFrom<$storage> for $name {
+            type Error = $crate::FieldError;
+
+            fn try_from(value: $storage) -> Result<Self, Self::Error> {
+                packed_bits!(@impl_typed_try_from $storage, value, [$($field: $ty: $bits),*]);
+                Ok(Self(value))
+            }
+        }
+
     };
 
     // bare fields. The field type is the storage type (`day: 5`).
@@ -227,6 +236,12 @@ macro_rules! packed_bits {
             }
 
             packed_bits!(@impl_bit_ops_methods $storage);
+        }
+
+        impl core::convert::From<$storage> for $name {
+            fn from(raw: $storage) -> Self {
+                Self(raw)
+            }
         }
 
     };
@@ -419,6 +434,39 @@ macro_rules! packed_bits {
     (@impl_typed_setters $storage:ty, [], $offset:expr) => {};
     (@impl_typed_setters $storage:ty, []) => {};
 
+    (@impl_typed_try_from $storage:ty, $value:ident, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*]) => {
+        {
+            let mask = ((1 << $first_bits) - 1);
+            let raw = ($value & mask) as <$first_ty as $crate::PackedField>::Raw;
+            if <$first_ty as $crate::PackedField>::unpack(raw).is_none() {
+                return Err($crate::FieldError {
+                    field: stringify!($first),
+                    value: raw as u64,
+                    max: ((1 << $first_bits) - 1) as u64,
+                });
+            }
+        }
+        packed_bits!(@impl_typed_try_from $storage, $value, [$($field: $ty: $bits),*], $first_bits);
+    };
+
+    (@impl_typed_try_from $storage:ty, $value:ident, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*], $offset:expr) => {
+        {
+            let mask = ((1 << $first_bits) - 1) << $offset;
+            let raw = (($value & mask) >> $offset) as <$first_ty as $crate::PackedField>::Raw;
+            if <$first_ty as $crate::PackedField>::unpack(raw).is_none() {
+                return Err($crate::FieldError {
+                    field: stringify!($first),
+                    value: raw as u64,
+                    max: ((1 << $first_bits) - 1) as u64,
+                });
+            }
+        }
+        packed_bits!(@impl_typed_try_from $storage, $value, [$($field: $ty: $bits),*], $offset + $first_bits);
+    };
+
+    (@impl_typed_try_from $storage:ty, $value:ident, [], $offset:expr) => {};
+    (@impl_typed_try_from $storage:ty, $value:ident, []) => {};
+
     (@impl_bit_ops_methods $storage:ty) => {
         pub fn bit_width(&self) -> usize {
             core::mem::size_of::<$storage>() * 8
@@ -509,7 +557,7 @@ mod tests {
     fn basic_functionality() {
         let color = Rgb565::new(31, 63, 31);
         // ADD R2, R1, R3 (register mode) -> 0x144C
-        let add_reg = Lc3Add::new(0b01100, 0, 1, 2, 0b0001);
+        let add_reg = Lc3Add::from(0x144C);
         // ADD R0, R1, #5 (immediate mode) -> 0x1065
         let add_imm = Lc3Add::new(0b00101, 1, 1, 0, 0b0001);
         let flags = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
@@ -759,6 +807,18 @@ mod tests {
 
             let err = pixel.try_set_color(Color::Yellow).unwrap_err();
             assert_eq!(4, err.value);
+        }
+
+        #[test]
+        fn typed_try_from() {
+            // color = 2 (Green) at bits 0-1, alpha = 1 at bits 2-9.
+            let ok = Pixel::try_from(2 | (1 << 2)).unwrap();
+            assert_eq!(Some(Color::Green), ok.color());
+            assert_eq!(Some(1), ok.alpha());
+
+            // Raw value 1 puts color = 1, a hole with no valid variant.
+            let err = Pixel::try_from(1).unwrap_err();
+            assert_eq!("color", err.field);
         }
     }
 }

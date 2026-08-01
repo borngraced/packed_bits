@@ -28,6 +28,33 @@ With packing: everything fits in just 2 bytes!
 ```rust
 use packed_bits::packed_bits;
 
+// LC-3 ADD instruction (16-bit). Fields map directly to the ISA layout:
+//   ADD DR, SR1, SR2   -> 0001 DR SR1 0 000 SR2 00
+//   ADD DR, SR1, imm5  -> 0001 DR SR1 1 imm5
+packed_bits! {
+    struct Lc3Add(u16) {
+        value: 5,   // SR2 (register mode) or imm5 (immediate mode)
+        imm: 1,     // 0 = register mode, 1 = immediate mode
+        sr1: 3,
+        dr: 3,
+        opcode: 4,  // 0b0001 for ADD
+    }
+}
+
+// ADD R2, R1, R3 (register mode) -> 0x144C
+let add_reg = Lc3Add::from(0x144C);
+assert_eq!((0b01100, 0, 1, 2, 0b0001), (add_reg.value(), add_reg.imm(), add_reg.sr1(), add_reg.dr(), add_reg.opcode()));
+
+// ADD R0, R1, #5 (immediate mode) -> 0x1065
+let add_imm = Lc3Add::new(0b00101, 1, 1, 0, 0b0001);
+assert_eq!(0x1065, add_imm.get_raw());
+```
+
+## More Examples
+
+### Packing domain values
+
+```rust
 packed_bits! {
     struct Date(u16) {
         day: 5,    // Can store 1-31 (needs 5 bits since 2^5 = 32)
@@ -98,6 +125,7 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Runtime overflow detection - Panics when a value exceeds its field capacity
 - Raw bit manipulation - `get_bit`, `set_bit`, `clear_bit`, `toggle_bit`
 - Raw storage access - `get_raw`, `set_raw`, `from_raw`
+- Conversion support - `From<Raw>`/`TryFrom<Raw>` construction for typed and bare fields
 
 ## Important Notes
 
@@ -107,6 +135,7 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Values are stored from lowest bits to highest bits in declaration order
 - Maximum value for each field is (2^bits) - 1
 - Passing an out-of-range value to `new`/setters panics instead of silently truncating
+- Bare-field structs get `From<Raw>` (infallible); typed-field structs get `TryFrom<Raw>`, which fails if any field's raw bits have no valid value (e.g. an enum discriminant hole)
 - Bit manipulation methods operate on the raw underlying storage, not logical fields
 - Bit indices are 0-based; out-of-range indices panic
 
