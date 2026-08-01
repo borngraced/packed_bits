@@ -36,11 +36,6 @@ pub use static_assertions;
 /// println!("Year: {}", birthday.year());   // Year: 99
 ///
 /// // Memory Usage
-/// #[cfg(not(feature = "std"))]
-/// use core::mem::size_of;
-/// #[cfg(feature = "std")]
-/// use std::mem::size_of;
-///
 /// assert_eq!(2, core::mem::size_of::<Date>()); // Only 2 bytes!
 /// ```
 ///
@@ -137,10 +132,7 @@ macro_rules! packed_bits {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(not(feature = "std"))]
     use core::mem::size_of;
-    #[cfg(feature = "std")]
-    use std::mem::size_of;
 
     // Define packed structs
     packed_bits!(

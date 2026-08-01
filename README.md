@@ -40,6 +40,9 @@ let birthday = Date::new(25, 12, 99);
 println!("Day: {}", birthday.day());     // 25
 println!("Month: {}", birthday.month()); // 12
 println!("Year: {}", birthday.year());   // 99
+// update values (chainable, returns &mut Self)
+birthday.set_day(1).set_month(1).set_year(1);
+assert_eq!((1, 1, 1), (birthday.day(), birthday.month(), birthday.year()));
 // Memory usage
 assert_eq!(2, core::mem::size_of::<Date>()); // 2 bytes!
 
@@ -74,20 +77,22 @@ let syn_ack = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 - Minimal dependencies - Pure Rust implementation
 - no_std compatible - Works in embedded environments
 - Zero-cost abstractions - Compiles to raw bit operations
-- Type safe - Each field gets its own accessor method
+- Type safe - Each field gets its own accessor and setter method
 - Memory efficient - Pack multiple values into single integers
+- Compile-time validation - Catches bit overflow at build time
+- Chainable setters - Update fields fluently via `set_<field>()`
 
 ## Important Notes
 
 - Make sure your bit counts add up to fit in your storage type
 - u16 can hold 16 bits total, u32 can hold 32 bits, etc.
-- Each field gets a method with the same name to read its value
+- Each field gets a method with the same name to read its value, plus `set_<field>` to update it
 - Values are stored from lowest bits to highest bits in declaration order
 - Maximum value for each field is (2^bits) - 1
+- Values passed to `new`/setters are masked to the field width; the macro asserts the total bit count fits at compile time
 
 ## TODO
 
-- [ ] Implement setter methods to update individual fields
-- [ ] Implement compile-time validation for bit overflow 
 - [ ] Implement const fn support for compile-time creation
 - [ ] Implement bit manipulation methods (set_bit, clear_bit, etc.)
+- [ ] Runtime overflow detection for values passed to `new`
