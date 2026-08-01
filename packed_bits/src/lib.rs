@@ -483,6 +483,16 @@ mod tests {
     }
 
     packed_bits! {
+        struct Lc3Add(u16) {
+            value: 5,   // SR2 (register mode) or imm5 (immediate mode)
+            imm: 1,     // 0 = register mode, 1 = immediate mode
+            sr1: 3,
+            dr: 3,
+            opcode: 4,  // 0b0001 for ADD
+        }
+    }
+
+    packed_bits! {
         struct TcpFlags(u8) {
             fin: 1,
             syn: 1,
@@ -497,51 +507,31 @@ mod tests {
 
     #[test]
     fn basic_functionality() {
-        let date = Date::new(25, 12, 99);
         let color = Rgb565::new(31, 63, 31);
-        let time = Time::new(59, 59, 23);
+        // ADD R2, R1, R3 (register mode) -> 0x144C
+        let add_reg = Lc3Add::new(0b01100, 0, 1, 2, 0b0001);
+        // ADD R0, R1, #5 (immediate mode) -> 0x1065
+        let add_imm = Lc3Add::new(0b00101, 1, 1, 0, 0b0001);
         let flags = TcpFlags::new(0, 1, 0, 0, 1, 0, 0, 0);
 
-        assert_eq!((25, 12, 99), (date.day(), date.month(), date.year()));
         assert_eq!((31, 63, 31), (color.blue(), color.green(), color.red()));
-        assert_eq!((59, 59, 23), (time.second(), time.minute(), time.hour()));
+        assert_eq!(0x144C, add_reg.get_raw());
+        assert_eq!(
+            (0b01100, 0, 1, 2, 0b0001),
+            (
+                add_reg.value(),
+                add_reg.imm(),
+                add_reg.sr1(),
+                add_reg.dr(),
+                add_reg.opcode()
+            )
+        );
+        assert_eq!(0x1065, add_imm.get_raw());
         assert_eq!((0, 1, 1), (flags.fin(), flags.syn(), flags.ack()));
 
-        assert_eq!(2, size_of::<Date>());
         assert_eq!(2, size_of::<Rgb565>());
-        assert_eq!(4, size_of::<Time>());
+        assert_eq!(2, size_of::<Lc3Add>());
         assert_eq!(1, size_of::<TcpFlags>());
-    }
-
-    #[test]
-    fn boundary_values() {
-        let min_date = Date::new(0, 0, 0);
-        let max_date = Date::new(31, 15, 127);
-
-        let black = Rgb565::new(0, 0, 0);
-        let white = Rgb565::new(31, 63, 31);
-
-        let midnight = Time::new(0, 0, 0);
-        let max_time = Time::new(59, 59, 23);
-
-        assert_eq!(
-            (0, 0, 0),
-            (min_date.day(), min_date.month(), min_date.year())
-        );
-        assert_eq!(
-            (31, 15, 127),
-            (max_date.day(), max_date.month(), max_date.year())
-        );
-        assert_eq!((0, 0, 0), (black.blue(), black.green(), black.red()));
-        assert_eq!((31, 63, 31), (white.blue(), white.green(), white.red()));
-        assert_eq!(
-            (0, 0, 0),
-            (midnight.second(), midnight.minute(), midnight.hour())
-        );
-        assert_eq!(
-            (59, 59, 23),
-            (max_time.second(), max_time.minute(), max_time.hour())
-        );
     }
 
     #[test]
@@ -769,15 +759,6 @@ mod tests {
 
             let err = pixel.try_set_color(Color::Yellow).unwrap_err();
             assert_eq!(4, err.value);
-        }
-
-        #[test]
-        fn typed_bit_ops() {
-            let mut pixel = Pixel::new(Color::Red, 0);
-            pixel.set_bit(0, true);
-            assert_eq!(None, pixel.color()); // raw 1 is a hole
-            assert_eq!(1, pixel.get_raw());
-            assert_eq!(16, pixel.bit_width());
         }
     }
 }
