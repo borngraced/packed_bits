@@ -94,7 +94,7 @@
 //! `PackedField` derive macro) as needed:
 //!
 //! ```toml
-//! packed_bits = { version = "0.2", features = ["derive"] }
+//! packed_bits = { version = "0.3", features = ["derive"] }
 //! ```
 //!
 //! # Example: memory savings

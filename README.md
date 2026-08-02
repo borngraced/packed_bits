@@ -8,7 +8,7 @@ Add `packed_bits` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-packed_bits = "0.2"
+packed_bits = "0.3"
 ```
 
 The crate is `no_std` by default; enable features as needed:
@@ -16,18 +16,18 @@ The crate is `no_std` by default; enable features as needed:
 ```toml
 [dependencies]
 # std (Error impl for FieldError)
-packed_bits = { version = "0.2", features = ["std"] }
+packed_bits = { version = "0.3", features = ["std"] }
 
 # typed fields via #[derive(PackedField)]
-packed_bits = { version = "0.2", features = ["derive"] }
+packed_bits = { version = "0.3", features = ["derive"] }
 ```
 
 To use the derive macro directly, add it too:
 
 ```toml
 [dependencies]
-packed_bits = { version = "0.2", features = ["derive"] }
-packed_bits_derive = "0.2"
+packed_bits = { version = "0.3", features = ["derive"] }
+packed_bits_derive = "0.3"
 ```
 
 ## Usage

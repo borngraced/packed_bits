@@ -4,7 +4,7 @@ members = ["packed_bits", "packed_bits_derive"]
 
 [workspace.package]
 authors = ["Samuel Onoja <0@sot.dev>"]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/borngraced/packed_bits"
@@ -17,4 +17,4 @@ syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
 trybuild = "1.0"
-packed_bits_derive = { path = "packed_bits_derive", version = "0.2.0" }
+packed_bits_derive = { path = "packed_bits_derive", version = "0.3.0" }
