@@ -678,7 +678,6 @@ macro_rules! packed_bits {
 #[cfg(test)]
 mod tests {
     #![allow(dead_code, private_interfaces, clippy::too_many_arguments)]
-    use super::*;
     use core::mem::size_of;
 
     // Define packed structs
