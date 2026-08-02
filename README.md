@@ -1,6 +1,10 @@
 # packed_bits
 
-Memory-efficient bit packing library
+[![crates.io](https://img.shields.io/crates/v/packed_bits)](https://crates.io/crates/packed_bits)
+[![docs.rs](https://img.shields.io/docsrs/packed_bits)](https://docs.rs/packed_bits)
+[![CI](https://img.shields.io/github/actions/workflow/status/borngraced/packed_bits/ci.yml?branch=main&label=CI)](https://github.com/borngraced/packed_bits/actions)
+
+Zero-cost, const-friendly, no_std and memory efficient bit packing library
 
 ## Installation
 

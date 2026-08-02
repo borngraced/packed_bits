@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
+      - run: cargo test --all-features
+      - run: cargo test --no-default-features
+      - run: cargo check --lib --no-default-features --target wasm32-unknown-unknown
+      - run: cargo clippy --all-features --all-targets -- -D warnings
+      - run: cargo fmt --all --check

@@ -1,6 +1,6 @@
 [package]
 name = "packed_bits"
-description = "Memory-efficient bit packing library"
+description = "Zero-cost, const-friendly, no_std and memory efficient bit packing library"
 keywords = ["bit-packing", "embedded", "no-std", "memory-efficient", "macro"]
 categories = ["embedded", "no-std", "data-structures"]
 version.workspace = true
