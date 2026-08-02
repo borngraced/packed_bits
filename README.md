@@ -4,16 +4,30 @@ Memory-efficient bit packing library
 
 ## Installation
 
-Update your Cargo.toml:
+Add `packed_bits` to your `Cargo.toml`:
 
 ```toml
-# std
 [dependencies]
-packed_bits = { git = "https://github.com/borngraced/packed_bits.git", features = ["std"] }
+packed_bits = "0.2"
+```
 
-# no_std 
+The crate is `no_std` by default; enable features as needed:
+
+```toml
 [dependencies]
-packed_bits = { git = "https://github.com/borngraced/packed_bits.git", default-features = false }
+# std (Error impl for FieldError)
+packed_bits = { version = "0.2", features = ["std"] }
+
+# typed fields via #[derive(PackedField)]
+packed_bits = { version = "0.2", features = ["derive"] }
+```
+
+To use the derive macro directly, add it too:
+
+```toml
+[dependencies]
+packed_bits = { version = "0.2", features = ["derive"] }
+packed_bits_derive = "0.2"
 ```
 
 ## Usage

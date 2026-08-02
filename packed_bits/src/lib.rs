@@ -89,11 +89,12 @@
 //!
 //! # no_std
 //!
-//! `packed_bits` is `no_std` compatible. Disable default features to build
-//! without `std`:
+//! `packed_bits` is `no_std` by default — no features are required. Opt into
+//! `std` (for an `Error` impl on `FieldError`) or `derive` (for the
+//! `PackedField` derive macro) as needed:
 //!
 //! ```toml
-//! packed_bits = { version = "0.1", default-features = false }
+//! packed_bits = { version = "0.2", features = ["derive"] }
 //! ```
 //!
 //! # Example: memory savings
