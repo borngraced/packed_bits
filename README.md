@@ -24,15 +24,15 @@ use packed_bits::packed_bits;
 // LC-3 ADD instruction (16-bit). Fields map directly to the ISA layout:
 //   ADD DR, SR1, SR2   -> 0001 DR SR1 0 000 SR2 00
 //   ADD DR, SR1, imm5  -> 0001 DR SR1 1 imm5
-packed_bits! {
-    struct Lc3Add(u16) {
+packed_bits!(
+    Lc3Add: u16 {
         value: 5,   // SR2 (register mode) or imm5 (immediate mode)
         imm: 1,     // 0 = register mode, 1 = immediate mode
         sr1: 3,
         dr: 3,
         opcode: 4,  // 0b0001 for ADD
     }
-}
+);
 
 // ADD R2, R1, R3 (register mode) -> 0x144C
 let add_reg = Lc3Add::from(0x144C);
@@ -48,13 +48,13 @@ assert_eq!(0x1065, add_imm.get_raw());
 ### Packing domain values
 
 ```rust
-packed_bits! {
-    struct Date(u16) {
+packed_bits!(
+    Date: u16 {
         day: 5,    // Can store 1-31 (needs 5 bits since 2^5 = 32)
         month: 4,  // Can store 1-12 (needs 4 bits since 2^4 = 16)
         year: 7,   // Can store 0-99 (needs 7 bits since 2^7 = 128)
     }
-}
+);
 let birthday = Date::new(25, 12, 99);
 // read values
 println!("Day: {}", birthday.day());     // 25
@@ -92,12 +92,12 @@ enum Color {
     Blue = 2,
 }
 
-packed_bits! {
-    struct Pixel(u16) {
+packed_bits!(
+    Pixel: u16 {
         color: Color = 2,
         alpha: u8 = 8,
     }
-}
+);
 
 let pixel = Pixel::new(Color::Blue, 200);
 assert_eq!(Some(Color::Blue), pixel.color());

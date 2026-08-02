@@ -12,15 +12,15 @@
 //! // LC-3 ADD instruction (16-bit). Fields map directly to the ISA layout:
 //! //   ADD DR, SR1, SR2   -> 0001 DR SR1 0 000 SR2 00
 //! //   ADD DR, SR1, imm5  -> 0001 DR SR1 1 imm5
-//! packed_bits! {
-//!     struct Lc3Add(u16) {
+//! packed_bits!(
+//!     Lc3Add: u16 {
 //!         value: 5,   // SR2 (register mode) or imm5 (immediate mode)
 //!         imm: 1,     // 0 = register mode, 1 = immediate mode
 //!         sr1: 3,
 //!         dr: 3,
 //!         opcode: 4,  // 0b0001 for ADD
 //!     }
-//! }
+//! );
 //!
 //! // ADD R2, R1, R3 (register mode) -> 0x144C
 //! let add_reg = Lc3Add::from(0x144C);
@@ -68,12 +68,12 @@
 //!     Blue = 2,
 //! }
 //!
-//! packed_bits! {
-//!     struct Pixel(u16) {
+//! packed_bits!(
+//!     Pixel: u16 {
 //!         color: Color = 2,
 //!         alpha: u8 = 8,
 //!     }
-//! }
+//! );
 //!
 //! pub fn run() {
 //!     let pixel = Pixel::new(Color::Blue, 200);
@@ -210,6 +210,17 @@ impl std::error::Error for FieldError {}
 ///
 /// See the [crate documentation](crate) for usage examples.
 ///
+/// # Syntax
+///
+/// ```text
+/// packed_bits!(
+///     Name: storage_type {
+///         field: bits,          // bare field, stored as `storage_type`
+///         field: Type = bits,   // typed field, stored via `PackedField`
+///     }
+/// );
+/// ```
+///
 /// # Parameters
 /// - `name`: The name of the generated struct
 /// - `storage`: The underlying data type/size (`u8`, `u16`, `u32`, `u64`)
@@ -229,7 +240,7 @@ macro_rules! packed_bits {
     // via blanket impls). Listed before the bare-field arm so `color: Color = 2`
     // matches here instead of being parsed as a bare expression.
     (
-        struct $name:ident($storage:ty) {
+        $name:ident: $storage:ty {
             $(
                 $field:ident: $ty:ty = $bits:expr,
             )*
@@ -290,7 +301,7 @@ macro_rules! packed_bits {
 
     // bare fields. The field type is the storage type (`day: 5`).
     (
-       struct $name:ident($storage:ty) {
+        $name:ident: $storage:ty {
             $(
                 $field:ident: $bits:expr,
             )*
@@ -671,41 +682,41 @@ mod tests {
 
     // Define packed structs
     packed_bits!(
-        struct Date(u16) {
+        Date: u16 {
             day: 5,
             month: 4,
             year: 7,
         }
     );
 
-    packed_bits! {
-        struct Rgb565(u16) {
+    packed_bits!(
+        Rgb565: u16 {
             blue: 5,
             green: 6,
             red: 5,
         }
-    }
+    );
 
-    packed_bits! {
-        struct Time(u32) {
+    packed_bits!(
+        Time: u32 {
             second: 6,
             minute: 6,
             hour: 5,
         }
-    }
+    );
 
-    packed_bits! {
-        struct Lc3Add(u16) {
+    packed_bits!(
+        Lc3Add: u16 {
             value: 5,   // SR2 (register mode) or imm5 (immediate mode)
             imm: 1,     // 0 = register mode, 1 = immediate mode
             sr1: 3,
             dr: 3,
             opcode: 4,  // 0b0001 for ADD
         }
-    }
+    );
 
-    packed_bits! {
-        struct TcpFlags(u8) {
+    packed_bits!(
+        TcpFlags: u8 {
             fin: 1,
             syn: 1,
             rst: 1,
@@ -715,7 +726,7 @@ mod tests {
             ece: 1,
             cwr: 1,
         }
-    }
+    );
 
     #[test]
     fn basic_functionality() {
@@ -921,12 +932,12 @@ mod tests {
             Yellow = 4, // exceeds the 2-bit field (max 3)
         }
 
-        packed_bits! {
-            struct Pixel(u16) {
+        packed_bits!(
+            Pixel: u16 {
                 color: Color = 2,
                 alpha: u8 = 8,
             }
-        }
+        );
 
         #[test]
         fn typed_new_get() {
