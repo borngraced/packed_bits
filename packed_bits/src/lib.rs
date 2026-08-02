@@ -319,8 +319,8 @@ macro_rules! packed_bits {
             pub const fn new($($field: $storage),*) -> Self {
                 $crate::static_assertions::const_assert!(($($bits +)* 0) <= core::mem::size_of::<$storage>() * 8);
 
-                packed_bits!(@impl_new_asserts [$($field: $bits),*]);
-                packed_bits!(@impl_new_pack [$($field: $bits),*], 0, 0)
+                packed_bits!(@impl_new_asserts $storage, [$($field: $bits),*]);
+                packed_bits!(@impl_new_pack $storage, [$($field: $bits),*], 0, 0)
             }
 
             packed_bits!(@impl_getters $storage, [$($field: $bits),*]);
@@ -357,16 +357,20 @@ macro_rules! packed_bits {
 
     };
 
-    (@impl_new_asserts [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*]) => {
-        assert!($first <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
-        packed_bits!(@impl_new_asserts [$($field: $bits),*]);
+    (@field_mask $storage:ty, $bits:expr) => {
+        (<$storage>::MAX >> (core::mem::size_of::<$storage>() * 8 - $bits))
     };
-    (@impl_new_asserts []) => {};
 
-    (@impl_new_pack [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*], $offset:expr, $acc:expr) => {
-        packed_bits!(@impl_new_pack [$($field: $bits),*], $offset + $first_bits, $acc | (($first & ((1 << $first_bits) - 1)) << $offset))
+    (@impl_new_asserts $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*]) => {
+        assert!($first <= packed_bits!(@field_mask $storage, $first_bits), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
+        packed_bits!(@impl_new_asserts $storage, [$($field: $bits),*]);
     };
-    (@impl_new_pack [], $offset:expr, $acc:expr) => {
+    (@impl_new_asserts $storage:ty, []) => {};
+
+    (@impl_new_pack $storage:ty, [$first:ident: $first_bits:expr $(, $field:ident: $bits:expr)*], $offset:expr, $acc:expr) => {
+        packed_bits!(@impl_new_pack $storage, [$($field: $bits),*], $offset + $first_bits, $acc | (($first & packed_bits!(@field_mask $storage, $first_bits)) << $offset))
+    };
+    (@impl_new_pack $storage:ty, [], $offset:expr, $acc:expr) => {
         Self($acc)
     };
 
@@ -374,7 +378,7 @@ macro_rules! packed_bits {
         #[doc = concat!("Returns the `", stringify!($first), "` field.")]
         #[inline]
         pub const fn $first(&self) -> $storage {
-            self.0 & ((1 << $first_bits) - 1)
+            self.0 & packed_bits!(@field_mask $storage, $first_bits)
         }
 
         packed_bits!(@impl_getters $storage, [$($field: $bits),*], $first_bits);
@@ -384,7 +388,7 @@ macro_rules! packed_bits {
         #[doc = concat!("Returns the `", stringify!($first), "` field.")]
         #[inline]
         pub const fn $first(&self) -> $storage {
-            (self.0 >> $offset) & ((1 << $first_bits) - 1)
+            (self.0 >> $offset) & packed_bits!(@field_mask $storage, $first_bits)
         }
 
         packed_bits!(@impl_getters $storage, [$($field: $bits),*], $offset + $first_bits);
@@ -400,8 +404,8 @@ macro_rules! packed_bits {
             /// Panics if `value` exceeds the field's bit width.
             #[inline]
             pub fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
-                assert!(value <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
-                let mask = ((1 << $first_bits) - 1);
+                assert!(value <= packed_bits!(@field_mask $storage, $first_bits), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
+                let mask = packed_bits!(@field_mask $storage, $first_bits);
                 self.0 = (self.0 & !mask) | value;
                 self
             }
@@ -418,8 +422,8 @@ macro_rules! packed_bits {
             /// Panics if `value` exceeds the field's bit width.
             #[inline]
             pub fn [<set_ $first>](&mut self, value: $storage) -> &mut Self {
-                assert!(value <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
-                let mask = ((1 << $first_bits) - 1) << $offset;
+                assert!(value <= packed_bits!(@field_mask $storage, $first_bits), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
+                let mask = packed_bits!(@field_mask $storage, $first_bits) << $offset;
                 self.0 = (self.0 & !mask) | (value << $offset);
                 self
             }
@@ -435,8 +439,8 @@ macro_rules! packed_bits {
     // Typed-field internal rules
     (@impl_typed_new $storage:ty, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*], $offset:expr, $packed:ident) => {
         let value = <$first_ty as $crate::PackedField>::pack($first) as $storage;
-        assert!(value <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
-        $packed |= (value & ((1 << $first_bits) - 1)) << $offset;
+        assert!(value <= packed_bits!(@field_mask $storage, $first_bits), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
+        $packed |= (value & packed_bits!(@field_mask $storage, $first_bits)) << $offset;
         packed_bits!(@impl_typed_new $storage, [$($field: $ty: $bits),*], $offset + $first_bits, $packed);
     };
     (@impl_typed_new $storage:ty, [], $offset:expr, $packed:ident) => {};
@@ -445,14 +449,14 @@ macro_rules! packed_bits {
         #[doc = concat!("Returns the `", stringify!($first), "` field, or `None` if its raw bits have no valid value.")]
         #[inline]
         pub fn $first(&self) -> Option<$first_ty> {
-            <$first_ty as $crate::PackedField>::unpack((self.0 & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw)
+            <$first_ty as $crate::PackedField>::unpack((self.0 & packed_bits!(@field_mask $storage, $first_bits)) as <$first_ty as $crate::PackedField>::Raw)
         }
 
         $crate::paste! {
             #[doc = concat!("Returns the raw `", stringify!($first), "` field bits.")]
             #[inline]
             pub fn [<$first _raw>](&self) -> <$first_ty as $crate::PackedField>::Raw {
-                (self.0 & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw
+                (self.0 & packed_bits!(@field_mask $storage, $first_bits)) as <$first_ty as $crate::PackedField>::Raw
             }
 
             #[doc = concat!("Returns the `", stringify!($first), "` field without validating its raw bits.")]
@@ -465,7 +469,7 @@ macro_rules! packed_bits {
             pub unsafe fn [<$first _unchecked>](&self) -> $first_ty {
                 // SAFETY: the caller guarantees the raw value is a valid representation.
                 unsafe {
-                    <$first_ty as $crate::PackedField>::unpack_unchecked((self.0 & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw)
+                    <$first_ty as $crate::PackedField>::unpack_unchecked((self.0 & packed_bits!(@field_mask $storage, $first_bits)) as <$first_ty as $crate::PackedField>::Raw)
                 }
             }
         }
@@ -477,14 +481,14 @@ macro_rules! packed_bits {
         #[doc = concat!("Returns the `", stringify!($first), "` field, or `None` if its raw bits have no valid value.")]
         #[inline]
         pub fn $first(&self) -> Option<$first_ty> {
-            <$first_ty as $crate::PackedField>::unpack(((self.0 >> $offset) & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw)
+            <$first_ty as $crate::PackedField>::unpack(((self.0 >> $offset) & packed_bits!(@field_mask $storage, $first_bits)) as <$first_ty as $crate::PackedField>::Raw)
         }
 
         $crate::paste! {
             #[doc = concat!("Returns the raw `", stringify!($first), "` field bits.")]
             #[inline]
             pub fn [<$first _raw>](&self) -> <$first_ty as $crate::PackedField>::Raw {
-                ((self.0 >> $offset) & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw
+                ((self.0 >> $offset) & packed_bits!(@field_mask $storage, $first_bits)) as <$first_ty as $crate::PackedField>::Raw
             }
 
             #[doc = concat!("Returns the `", stringify!($first), "` field without validating its raw bits.")]
@@ -497,7 +501,7 @@ macro_rules! packed_bits {
             pub unsafe fn [<$first _unchecked>](&self) -> $first_ty {
                 // SAFETY: the caller guarantees the raw value is a valid representation.
                 unsafe {
-                    <$first_ty as $crate::PackedField>::unpack_unchecked(((self.0 >> $offset) & ((1 << $first_bits) - 1)) as <$first_ty as $crate::PackedField>::Raw)
+                    <$first_ty as $crate::PackedField>::unpack_unchecked(((self.0 >> $offset) & packed_bits!(@field_mask $storage, $first_bits)) as <$first_ty as $crate::PackedField>::Raw)
                 }
             }
         }
@@ -516,8 +520,8 @@ macro_rules! packed_bits {
             #[inline]
             pub fn [<set_ $first>](&mut self, value: $first_ty) -> &mut Self {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
-                assert!(packed <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
-                let mask = ((1 << $first_bits) - 1);
+                assert!(packed <= packed_bits!(@field_mask $storage, $first_bits), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
+                let mask = packed_bits!(@field_mask $storage, $first_bits);
                 self.0 = (self.0 & !mask) | packed;
                 self
             }
@@ -526,7 +530,7 @@ macro_rules! packed_bits {
             #[inline]
             pub fn [<set_ $first _raw>](&mut self, value: <$first_ty as $crate::PackedField>::Raw) -> Result<&mut Self, $crate::FieldError> {
                 let value = value as $storage;
-                let mask = ((1 << $first_bits) - 1);
+                let mask = packed_bits!(@field_mask $storage, $first_bits);
                 if value > mask {
                     return Err($crate::FieldError { field: stringify!($first), value: value as u64, max: mask as u64 });
                 }
@@ -538,7 +542,7 @@ macro_rules! packed_bits {
             #[inline]
             pub fn [<try_set_ $first>](&mut self, value: $first_ty) -> Result<&mut Self, $crate::FieldError> {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
-                let mask = ((1 << $first_bits) - 1);
+                let mask = packed_bits!(@field_mask $storage, $first_bits);
                 if packed > mask {
                     return Err($crate::FieldError { field: stringify!($first), value: packed as u64, max: mask as u64 });
                 }
@@ -558,8 +562,8 @@ macro_rules! packed_bits {
             #[inline]
             pub fn [<set_ $first>](&mut self, value: $first_ty) -> &mut Self {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
-                assert!(packed <= ((1 << $first_bits) - 1), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
-                let mask = ((1 << $first_bits) - 1) << $offset;
+                assert!(packed <= packed_bits!(@field_mask $storage, $first_bits), concat!("value for field `", stringify!($first), "` exceeds its capacity"));
+                let mask = packed_bits!(@field_mask $storage, $first_bits) << $offset;
                 self.0 = (self.0 & !mask) | (packed << $offset);
                 self
             }
@@ -568,9 +572,9 @@ macro_rules! packed_bits {
             #[inline]
             pub fn [<set_ $first _raw>](&mut self, value: <$first_ty as $crate::PackedField>::Raw) -> Result<&mut Self, $crate::FieldError> {
                 let value = value as $storage;
-                let mask = ((1 << $first_bits) - 1) << $offset;
-                if value > ((1 << $first_bits) - 1) {
-                    return Err($crate::FieldError { field: stringify!($first), value: value as u64, max: ((1 << $first_bits) - 1) as u64 });
+                let mask = packed_bits!(@field_mask $storage, $first_bits) << $offset;
+                if value > packed_bits!(@field_mask $storage, $first_bits) {
+                    return Err($crate::FieldError { field: stringify!($first), value: value as u64, max: packed_bits!(@field_mask $storage, $first_bits) as u64 });
                 }
                 self.0 = (self.0 & !mask) | (value << $offset);
                 Ok(self)
@@ -580,9 +584,9 @@ macro_rules! packed_bits {
             #[inline]
             pub fn [<try_set_ $first>](&mut self, value: $first_ty) -> Result<&mut Self, $crate::FieldError> {
                 let packed = <$first_ty as $crate::PackedField>::pack(value) as $storage;
-                let mask = ((1 << $first_bits) - 1) << $offset;
-                if packed > ((1 << $first_bits) - 1) {
-                    return Err($crate::FieldError { field: stringify!($first), value: packed as u64, max: ((1 << $first_bits) - 1) as u64 });
+                let mask = packed_bits!(@field_mask $storage, $first_bits) << $offset;
+                if packed > packed_bits!(@field_mask $storage, $first_bits) {
+                    return Err($crate::FieldError { field: stringify!($first), value: packed as u64, max: packed_bits!(@field_mask $storage, $first_bits) as u64 });
                 }
                 self.0 = (self.0 & !mask) | (packed << $offset);
                 Ok(self)
@@ -597,13 +601,13 @@ macro_rules! packed_bits {
 
     (@impl_typed_try_from $storage:ty, $value:ident, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*]) => {
         {
-            let mask = ((1 << $first_bits) - 1);
+            let mask = packed_bits!(@field_mask $storage, $first_bits);
             let raw = ($value & mask) as <$first_ty as $crate::PackedField>::Raw;
             if <$first_ty as $crate::PackedField>::unpack(raw).is_none() {
                 return Err($crate::FieldError {
                     field: stringify!($first),
                     value: raw as u64,
-                    max: ((1 << $first_bits) - 1) as u64,
+                    max: packed_bits!(@field_mask $storage, $first_bits) as u64,
                 });
             }
         }
@@ -612,13 +616,13 @@ macro_rules! packed_bits {
 
     (@impl_typed_try_from $storage:ty, $value:ident, [$first:ident: $first_ty:ty: $first_bits:expr $(, $field:ident: $ty:ty: $bits:expr)*], $offset:expr) => {
         {
-            let mask = ((1 << $first_bits) - 1) << $offset;
+            let mask = packed_bits!(@field_mask $storage, $first_bits) << $offset;
             let raw = (($value & mask) >> $offset) as <$first_ty as $crate::PackedField>::Raw;
             if <$first_ty as $crate::PackedField>::unpack(raw).is_none() {
                 return Err($crate::FieldError {
                     field: stringify!($first),
                     value: raw as u64,
-                    max: ((1 << $first_bits) - 1) as u64,
+                    max: packed_bits!(@field_mask $storage, $first_bits) as u64,
                 });
             }
         }
@@ -702,6 +706,18 @@ mod tests {
             second: 6,
             minute: 6,
             hour: 5,
+        }
+    );
+
+    packed_bits!(
+        Byte: u8 {
+            value: 8,
+        }
+    );
+
+    packed_bits!(
+        Word: u16 {
+            value: 16,
         }
     );
 
@@ -917,6 +933,25 @@ mod tests {
             (25, 12, 99, 25 | 12 << 5 | 99 << 9),
             (DAY, MONTH, YEAR, RAW)
         );
+    }
+
+    #[test]
+    fn full_width_field() {
+        // A single field spanning the entire storage width must not overflow
+        // the `1 << bits` mask computation.
+        let byte = Byte::new(200);
+        assert_eq!(200, byte.value());
+        assert_eq!(200, byte.get_raw());
+
+        let mut word = Word::new(0xABCD);
+        assert_eq!(0xABCD, word.value());
+        assert_eq!(0xABCD, word.get_raw());
+        assert_eq!(0x1234, word.set_value(0x1234).value());
+
+        const MAX_BYTE: Byte = Byte::new(255);
+        assert_eq!(255, MAX_BYTE.value());
+        const MAX_WORD: Word = Word::new(u16::MAX);
+        assert_eq!(u16::MAX, MAX_WORD.value());
     }
 
     #[cfg(feature = "derive")]
