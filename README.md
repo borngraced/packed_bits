@@ -155,6 +155,25 @@ assert!(Pixel::try_from(3).is_err());
 
 ## TODO
 
-- [ ] Implement `Display`/`FromStr` conversions
+### API
+
+- [ ] Allow mixed bare and typed fields in one `packed_bits!` invocation
+- [ ] Add fallible bare APIs (`try_new`, `try_set_*`) for symmetry with typed fields
+- [ ] Specialize primitive typed getters to return `T` instead of `Option<T>` (enums keep `Option`)
+- [ ] Padding / reserved syntax (`_: 3` or `reserved: 3`) without generating accessors
+- [ ] Optional visibility control for generated structs (not always `pub`)
+- [ ] Split `FieldError` (or add variants) so enum discriminant holes are distinct from bit-width overflow
+
+### Types & layout
+
 - [ ] Implement support for `bool` fields
 - [ ] Implement support for signed integer fields
+- [ ] Optional MSB-first packing mode (currently LSB-first only)
+- [ ] Support `u128` storage
+- [ ] Implement `Display`/`FromStr` conversions
+- [ ] Derive or generate `Hash` / `Default` where sensible
+
+### Packaging & hygiene
+
+- [ ] Stop publicly re-exporting `paste` and `static_assertions`
+- [ ] Declare `rust-version` (MSRV) and enforce it in CI
